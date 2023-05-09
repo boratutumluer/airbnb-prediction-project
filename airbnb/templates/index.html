@@ -60,7 +60,7 @@
                     <a class="nav-link" href="#" id="heatmapBtn">Heatmap</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#" id="clusterBtn">Cluster</a>
+                    <a class="nav-link" href="#" id="clusterBtn">Clustering</a>
                 </li>
                 <li class="nav-item" id="filter">
                     <div>
@@ -247,17 +247,17 @@
                 }
             });
 
-            map.addLayer({
-                id: 'all-points',
-                type: 'circle',
-                source: 'point',
-                paint: {
-                    'circle-color': '#11b4da',
-                    'circle-radius': 3,
-                    'circle-stroke-width': 1,
-                    'circle-stroke-color': 'black'
-                }
-            });
+<!--            map.addLayer({-->
+<!--                id: 'all-points',-->
+<!--                type: 'circle',-->
+<!--                source: 'point',-->
+<!--                paint: {-->
+<!--                    'circle-color': '#11b4da',-->
+<!--                    'circle-radius': 3,-->
+<!--                    'circle-stroke-width': 1,-->
+<!--                    'circle-stroke-color': 'black'-->
+<!--                }-->
+<!--            });-->
 
             map.addSource('heat_points', {
               'type': 'geojson',
@@ -324,25 +324,16 @@
         const neighbourhoods_bbox = {{ neighbourhoods_bbox|tojson|safe }}
         document.getElementById('select-district').addEventListener('change', (event) => {
 
+            map.setLayoutProperty('unclustered-point','visibility','visible');
             const district = event.target.value;
-
             map.setFilter('unclustered-point', ['==', ['get', 'label'], district]);
 
-            map.setPaintProperty('unclustered-point', 'circle-color', {
-                "property": "segment",
-                "type": "categorical",
-                "stops": [
-                  [1, "red"],
-                  [2, "green"],
-                  [3, "blue"],
-                  [4, "yellow"],
-                  [5, "purple"],
-                  [6, "orange"],
-                  [7, "white"],
-                  [8, "brown"]
-                  ],
-                "default": "gray"
-            });
+
+            map.setPaintProperty('unclustered-point', 'circle-color', '#11b4da');
+            map.setPaintProperty('unclustered-point', 'circle-radius', 3);
+            map.setPaintProperty('unclustered-point', 'circle-stroke-width', 1);
+            map.setPaintProperty('unclustered-point', 'circle-stroke-color', 'black');
+
 
             highlightNeighbourhood(district);
             const district_bbox = neighbourhoods_bbox[district];
@@ -370,9 +361,9 @@
             } else {
                 event.target.innerText = 'Heatmap';
                 map.setLayoutProperty('heatmap_layer','visibility','none');
-                map.setLayoutProperty('unclustered-point','visibility','visible');
                 map.setLayoutProperty('clusters','visibility','visible');
                 map.setLayoutProperty('cluster-count','visibility','visible');
+                map.setLayoutProperty('unclustered-point','visibility','visible');
                 map.setLayoutProperty('all-points','visibility','none');
                 const style = map.getStyle()
                 style.sources.point.cluster = true
@@ -380,78 +371,47 @@
             }
         })
 
-                                                            <!-- CLUSTER -->
-<!--        const clusterButton = document.querySelector('#clusterBtn');-->
-<!--        heatmapButton.addEventListener('click',(event)=>{-->
-<!--            if(event.target.innerText === 'Cluster'){-->
-<!--                event.target.innerText = 'All';-->
-<!--                map.setLayoutProperty('heatmap_layer','visibility','visible');-->
-<!--                map.setLayoutProperty('unclustered-point','visibility','none');-->
-<!--                map.setLayoutProperty('clusters','visibility','none');-->
-<!--                map.setLayoutProperty('cluster-count','visibility','none');-->
+<!--                                                             CLUSTER -->
+        const clusterButton = document.querySelector('#clusterBtn');
+        clusterButton.addEventListener('click',(event)=>{
+                map.setLayoutProperty('heatmap_layer','visibility','none');
+                map.setLayoutProperty('unclustered-point','visibility','visible');
+                map.setLayoutProperty('clusters','visibility','none');
+                map.setLayoutProperty('cluster-count','visibility','none');
 
-<!--            } else {-->
-<!--                event.target.innerText = 'Heatmap';-->
-<!--                map.setLayoutProperty('heatmap_layer','visibility','none');-->
-<!--                map.setLayoutProperty('unclustered-point','visibility','visible');-->
-<!--                map.setLayoutProperty('clusters','visibility','visible');-->
-<!--                map.setLayoutProperty('cluster-count','visibility','visible');-->
-<!--                const style = map.getStyle()-->
-<!--                style.sources.point.cluster = true-->
-<!--                map.setStyle(style)-->
-<!--            }-->
-<!--        })-->
-
+                map.setPaintProperty('unclustered-point', 'circle-color', {
+                    "property": "segment",
+                    "type": "categorical",
+                    "stops": [
+                      [1, "red"],
+                      [2, "green"],
+                      [3, "blue"],
+                      [4, "yellow"],
+                      [5, "purple"],
+                      [6, "orange"],
+                      [7, "white"],
+                      [8, "brown"]
+                      ],
+                    "default": "gray"
+                });
+        });
 
                                                     <!-- LIMIT -->
         document.getElementById('set_bbox').addEventListener('click', () => {
             map.fitBounds([[27.965767, 40.801789],[29.963703, 41.585417]])
-            map.setLayoutProperty('neighbourhood_highlight','visibility','none');
-            map.setLayoutProperty('all-points','visibility','none');
-
             const style = map.getStyle()
             style.sources.point.cluster = true
             map.setStyle(style)
 
+            map.setFilter('unclustered-point', null)
+
+            map.setLayoutProperty('neighbourhood_highlight','visibility','none');
+            map.setLayoutProperty('all-points','visibility','none');
+            map.setLayoutProperty('clusters','visibility','visible');
+            map.setLayoutProperty('cluster-count','visibility','visible');
+            map.setLayoutProperty('unclustered-point','visibility','none');
+
         });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
                                         <!--        STATISTICS-->
         var accommodates_price = document.getElementById('accommodates_price_chart').getContext('2d');

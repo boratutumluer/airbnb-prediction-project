@@ -25,21 +25,22 @@ def index():
     neighbourhoods_labels = sorted(list(neighbourhoods_bbox.keys()))
 
     # POINTS
-    # latlong = []
-    # for neighbourhood, lat, lon in zip(all_data["neighbourhood_cleansed"], all_data["longitude"], all_data["latitude"]):
-    #     latlong.append([lat, lon])
+    point_properties = []
+    for url, name, neighbourhood, lon, lat, seg in zip(all_data["listing_url"],
+                                                       all_data["name"],
+                                                       all_data["neighbourhood_cleansed"],
+                                                       all_data["longitude"],
+                                                       all_data["latitude"],
+                                                       all_data["segment"]):
 
-    neighlatlong = []
-    for neighbourhood, lon, lat, seg in zip(all_data["neighbourhood_cleansed"], all_data["longitude"],
-                                            all_data["latitude"], all_data["segment"]):
-        neighlatlong.append([[lon, lat], neighbourhood, seg])
+        point_properties.append([[lon, lat], neighbourhood, seg, url, name])
 
     # STATISTICS
     accommodates_price = all_data.groupby("accommodates")["price"].mean().reset_index()
     accommodates_list = accommodates_price["accommodates"].to_list()
     price_list = accommodates_price["price"].to_list()
 
-    return render_template('index.html', mapbox_access_token=mapbox_access_token, points=neighlatlong,
+    return render_template('index.html', mapbox_access_token=mapbox_access_token, points=point_properties,
                            accommodates=accommodates_list, price=price_list, neighbourhoods=neighbourhoods_geojson,
                            neighbourhoods_labels=neighbourhoods_labels, neighbourhoods_bbox=neighbourhoods_bbox)
 
