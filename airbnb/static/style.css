@@ -1,0 +1,52 @@
+    #map {
+        position: absolute;
+        top: 60px;
+        bottom: 0;
+        width: 70%;
+        z-index: -1;
+    }
+    #stats {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        width: 30%;
+        padding: 10px;
+        background-color: #f1f1f1;
+    }
+    form {
+        position: absolute;
+        background-color: #f1f1f1;
+        margin: auto;
+        padding: 15px;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        display: inline-table;
+        font-size: small;
+        text-align: -webkit-center;
+    }
+    #form-div {
+        position: absolute;
+        top: 60px;
+        bottom: 0;
+        width: 70%;
+    }
+    #navbar{
+        position: absolute;
+        width: 70%;
+        font-size: larger;
+        padding-right: 30px;
+        padding-left: 30px;
+    }
+    #filter{
+        padding-top: 10px;
+        margin-left: 50px;
+        font-size: 18px;
+
+    }
+    .dropdown-menu {
+        max-height: 280px;
+        overflow-y: auto;
+    }
