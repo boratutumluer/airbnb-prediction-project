@@ -13,43 +13,66 @@
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+<!--    <script type="text/javascript" src="{{ url_for('static',filename='map.js') }}"></script>-->
+<!--    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='map.css') }}">-->
 
-    <style>
-        #map {
-            position: absolute;
-            top: 60px;
-            bottom: 0;
-            width: 70%;
-        }
-        #stats {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            right: 0;
-            width: 30%;
-            padding: 10px;
-            background-color: #f1f1f1;
-        }
-        #navbar{
-            position: absolute;
-            width: 70%;
-            font-size: larger;
-            padding-right: 30px;
-            padding-left: 30px;
-        }
-        #filter{
-            padding-top: 10px;
-            margin-left: 50px;
-            font-size: 18px;
+<style>
+    #map {
+        position: absolute;
+        top: 60px;
+        bottom: 0;
+        width: 70%;
+        z-index: -1;
+    }
+    #stats {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        width: 30%;
+        padding: 10px;
+        background-color: #f1f1f1;
+    }
+    form {
+        position: absolute;
+        background-color: #f1f1f1;
+        margin: auto;
+        padding: 15px;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        display: inline-table;
+        font-size: small;
+        text-align: -webkit-center;
+    }
+    #form-div {
+        position: absolute;
+        top: 60px;
+        bottom: 0;
+        width: 70%;
+    }
+    #navbar{
+        position: absolute;
+        width: 70%;
+        font-size: larger;
+        padding-right: 30px;
+        padding-left: 30px;
+    }
+    #filter{
+        padding-top: 10px;
+        margin-left: 50px;
+        font-size: 18px;
 
-        }
-        .dropdown-menu {
-            max-height: 280px;
-            overflow-y: auto;
-        }
+    }
+    .dropdown-menu {
+        max-height: 280px;
+        overflow-y: auto;
+    }
 
-    </style>
+</style>
 </head>
+
 <body>
 <div>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark" id="navbar">
@@ -61,6 +84,9 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#" id="clusterBtn">Clustering</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" id="predictBtn">Prediction</a>
                 </li>
                 <li class="nav-item" id="filter">
                     <div>
@@ -76,8 +102,103 @@
         </div>
     </nav>
 </div>
-<div id='map'>
-</div>
+
+<div id='map'></div>
+<div id="form-div"><form method="POST">
+    <table>
+      <tr>
+        <td><label for="district">Neigbourhood:</label></td>
+        <td>
+          <select id="district" name="district" style="width: 70px;">
+            <option selected disabled hidden></option> {% for i in neighbourhoods_labels %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
+          </select>
+        </td>
+        <td><label for="property_types">Property Type:</label></td>
+        <td>
+          <select id="property_types" name="property_types" style="width: 70px;">
+            <option selected disabled hidden></option> {% for i in property_types %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td><label for="room_types">Room Type:</label></td>
+        <td>
+          <select id="room_types" name="room_types" style="width: 70px;">
+            <option selected disabled hidden></option> {% for i in room_types %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
+          </select>
+        </td>
+        <td><label for="bathroom_types">Bathroom Type:</label></td>
+        <td>
+          <select id="bathroom_types" name="bathroom_types" style="width: 70px;">
+            <option selected disabled hidden></option> {% for i in bathroom_types %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
+          </select>
+        </td>
+      </tr>
+        <tr>
+        <td><label for="bathroom_types">Host Response Time:</label></td>
+        <td>
+          <select id="response_time" name="response_time" style="width: 70px;">
+            <option selected disabled hidden></option> {% for i in host_response_times %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
+          </select>
+        </td>
+        </tr>
+      <tr>
+        <td><label for="accommodates">Accommodates:</label></td>
+        <td><input type="number" id="accommodates" placeholder="2" name="accommodates" min="0" style="width: 70px;"></td>
+        <td><label for="bedrooms">Bedrooms:</label></td>
+        <td><input type="number" id="bedrooms" placeholder="1" name="bedrooms" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="minimum_night">Minimum Night:</label></td>
+        <td><input type="number" id="minimum_night" placeholder="1" name="minimum_night" min="0" style="width: 70px;"></td>
+        <td><label for="beds">Beds:</label></td>
+        <td><input type="number" id="beds" placeholder="1" name="beds" min="0" style="width: 70px;"></td>
+      <tr>
+      <tr>
+        <td><label for="availability_30">Availability 30:</label></td>
+        <td><input type="number" id="availability_30" placeholder="15"name="availability_30" min="0" style="width: 70px;"></td>
+        <td><label for="bathroom">Bathroom:</label></td>
+        <td><input type="number" id="bathroom" placeholder="1" name="bathroom" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="availability_365">Availability 365:</label></td>
+        <td><input type="number" id="availability_365" placeholder="150" name="availability_365" min="0" style="width: 70px;"></td>
+        <td><label for="nlisting">Number of Listings:</label></td>
+        <td><input type="number" id="nlisting"  placeholder="1" name="nlisting" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="number_of_score">Number of Reviews:</label></td>
+        <td><input type="number" id="number_of_score" placeholder="50" name="number_of_score" min="0" style="width: 70px;"></td>
+        <td><label for="reviewscore">Review Score:</label></td>
+        <td><input type="number" id="reviewscore" placeholder="1-5" name="reviewscore" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="accuracyscore">Accuracy Score:</label></td>
+        <td><input type="number" id="accuracyscore" placeholder="1-5" name="accuracyscore" min="0" style="width: 70px;"></td>
+        <td><label for="cleanliness">Cleanliness Score:</label></td>
+        <td><input type="number" id="cleanliness" placeholder="1-5" name="cleanliness" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="interactionscore">Interaction Reviews:</label></td>
+        <td><input type="number" id="interactionscore" placeholder="1-5" name="interactionscore" min="0" style="width: 70px;"></td>
+        <td><label for="locationscore">Location Score:</label></td>
+        <td><input type="number" id="locationscore" placeholder="1-5" name="locationscore" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="checkinscore">Checkin Score:</label></td>
+        <td><input type="number" id="checkinscore" placeholder="1-5" name="checkinscore" min="0" style="width: 70px;"></td>
+        <td><label for="valuescore">Value Score:</label></td>
+        <td><input type="number" id="valuescore"  placeholder="1-5"name="valuescore" min="0" style="width: 70px;"></td>
+      </tr>
+      <tr>
+        <td><label for="hostsince">Host Since:</label></td>
+        <td><input type="number" id="hostsince" placeholder="100days" name="hostsince" min="0" style="width: 70px;"></td>
+        <td><label for="responserate">Response Rate:</label></td>
+        <td><input type="number" id="responserate" placeholder="1-5" name="responserate" min="0" style="width: 70px;"></td>
+      </tr>
+    </table><br>
+    <button type="submit" class="btn btn-primary" style="font-size: x-small; text-align: center;">Submit</button>
+  </form></div>
 
 <div id='stats'>
     <h3 style="text-align:center">Statistics</h3>
@@ -92,8 +213,8 @@
             container: 'map',
             style: 'mapbox://styles/boratutumluer/clh0i109u00dl01qtcq4mee7s',
             center: [29.02573, 41.08384],
-            zoom: 3,
-            maxBounds: [[27.965767, 40.801789],[29.963703, 41.585417]]
+            maxBounds: [[27.965767, 40.801789],[29.963703, 41.585417]],
+            zoom: 12
         });
 
         map.fitBounds([[27.965767, 40.801789],[29.963703, 41.585417]])
@@ -138,8 +259,8 @@
         }
 
 
-
-                                        <!--        NEIGHBOURHOOD-->
+// #####################################################################################################################
+                                                    <!--NEIGHBOURHOOD-->
         const neighbour_geojson =  JSON.parse({{ neighbourhoods|tojson|safe }});
         map.on('load', function() {
             map.addSource('neighbourhoods', {
@@ -172,7 +293,8 @@
             highlightNeighbourhood('');
         });
 
-                                        <!--        POINTS-->
+// #####################################################################################################################
+                                                    <!--POINTS-->
         const Points = {{ points|tojson|safe }}
         map.on('load', function() {
             map.addSource('point', {
@@ -182,7 +304,9 @@
                 'features': Points.map(function(point) {
                   return {
                     'type': 'Feature',
-                    'properties' : {'label' : point[1], 'segment': point[2]},
+                    'properties' : {'label' : point[1], 'segment': point[2],
+                                    'description' : '<strong>' + point[4] + '</strong>' +
+                                    '<a href="' + point[3] + '" target="_blank" </a>'},
                     'geometry': {
                       'type': 'Point',
                       'coordinates': point[0]
@@ -247,18 +371,6 @@
                 }
             });
 
-<!--            map.addLayer({-->
-<!--                id: 'all-points',-->
-<!--                type: 'circle',-->
-<!--                source: 'point',-->
-<!--                paint: {-->
-<!--                    'circle-color': '#11b4da',-->
-<!--                    'circle-radius': 3,-->
-<!--                    'circle-stroke-width': 1,-->
-<!--                    'circle-stroke-color': 'black'-->
-<!--                }-->
-<!--            });-->
-
             map.addSource('heat_points', {
               'type': 'geojson',
               'data': {
@@ -314,12 +426,11 @@
               },
             });
             map.setLayoutProperty('heatmap_layer','visibility','none');
-            map.setLayoutProperty('all-points','visibility','none');
 
         });
 
 
-
+// #####################################################################################################################
                                         <!--        NEIGHBOURHOOD FILTER-->
         const neighbourhoods_bbox = {{ neighbourhoods_bbox|tojson|safe }}
         document.getElementById('select-district').addEventListener('change', (event) => {
@@ -347,6 +458,7 @@
             map.setStyle(style)
         });
 
+// #####################################################################################################################
                                                     <!-- HEATMAP -->
         const heatmapButton = document.querySelector('#heatmapBtn');
         heatmapButton.addEventListener('click',(event)=>{
@@ -356,7 +468,6 @@
                 map.setLayoutProperty('unclustered-point','visibility','none');
                 map.setLayoutProperty('clusters','visibility','none');
                 map.setLayoutProperty('cluster-count','visibility','none');
-                map.setLayoutProperty('all-points','visibility','none');
 
             } else {
                 event.target.innerText = 'Heatmap';
@@ -371,7 +482,8 @@
             }
         })
 
-<!--                                                             CLUSTER -->
+// #####################################################################################################################
+                                                    <!--CLUSTER -->
         const clusterButton = document.querySelector('#clusterBtn');
         clusterButton.addEventListener('click',(event)=>{
                 map.setLayoutProperty('heatmap_layer','visibility','none');
@@ -396,6 +508,7 @@
                 });
         });
 
+// #####################################################################################################################
                                                     <!-- LIMIT -->
         document.getElementById('set_bbox').addEventListener('click', () => {
             map.fitBounds([[27.965767, 40.801789],[29.963703, 41.585417]])
@@ -412,6 +525,72 @@
             map.setLayoutProperty('unclustered-point','visibility','none');
 
         });
+// #####################################################################################################################
+                                                    <!--POP-UP-->
+
+        map.on('click', 'unclustered-point', (k) => {
+            const coordinates = k.features[0].geometry.coordinates.slice();
+            const description = k.features[0].properties.description;
+
+            while (Math.abs(k.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += k.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(description)
+                .addTo(map);
+        });
+        map.on('mouseenter', 'unclustered-point', () => {map.getCanvas().style.cursor = 'pointer';});
+        map.on('mouseleave', 'unclustered-point', () => {map.getCanvas().style.cursor = '';});
+
+// #####################################################################################################################
+                                                <!--ADD NEW POINT-->
+
+        map.on('click', function(e) {
+			var lngLat = e.lngLat;
+			var popup = new mapboxgl.Popup()
+				.setLngLat(lngLat)
+				.setHTML('<form id="popup-form"><label>Property name:</label><br><input type="text" id="property-name"><br><label>Property value:</label><br><input type="text" id="property-value"><br><button type="submit">Save</button></form>')
+				.addTo(map);
+
+			document.getElementById('popup-form').addEventListener('submit', function(e) {
+				e.preventDefault();
+				var propertyName = document.getElementById('property-name').value;
+				var propertyValue = document.getElementById('property-value').value;
+<!--				saveProperty(lngLat, propertyName, propertyValue);-->
+				popup.remove();
+			});
+		});
+
+<!--		function saveProperty(lngLat, name, value) {-->
+<!--			var url = 'YOUR_API_URL'; // Your API endpoint URL-->
+<!--			var data = { lng: lngLat.lng, lat: lngLat.lat, name: name, value: value };-->
+<!--			fetch(url, {-->
+<!--				method: 'POST',-->
+<!--				body: JSON.stringify(data),-->
+<!--				headers: {-->
+<!--					'Content-Type': 'application/json'-->
+<!--				}-->
+<!--			})-->
+<!--			.then(response => response.json())-->
+<!--			.then(data => console.log(data))-->
+<!--			.catch(error => console.error(error));-->
+<!--		}-->
+
+
+
+
+
+
+
+
+
+
+
+
+
+// #####################################################################################################################
 
                                         <!--        STATISTICS-->
         var accommodates_price = document.getElementById('accommodates_price_chart').getContext('2d');

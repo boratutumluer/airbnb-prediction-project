@@ -9,3 +9,4 @@ class Data:
         df = pd.read_sql_query(f"SELECT * FROM {table};", self.conn)
         df.rename(columns={"level_0": "index"}, inplace=True)
         return df
+
