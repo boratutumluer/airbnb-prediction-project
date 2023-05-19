@@ -8,6 +8,7 @@ import warnings
 from sqlalchemy import create_engine
 
 import sys
+
 sys.path.append('../airbnb/helpers')
 from airbnb.helpers.data_prep import *
 from airbnb.helpers.eda import *
@@ -34,8 +35,10 @@ conn = engine.connect()
 df_ = pd.read_sql_query("SELECT * FROM all_data", con=conn)
 df = df_.copy()
 
-columns = [col for col in df.columns if col not in ["index", "listing_url", "segment", "name", "host_has_profile_pic", "latitude", "longitude"]]
+columns = [col for col in df.columns if col not in ["index", "listing_url", "segment", "name", "host_has_profile_pic"]]
 df = df[columns]
+
+high_correlated_cols(df, plot=True)
 ########################################################################################################################
 #                                       FEATURE ENGINEERING
 ########################################################################################################################
@@ -154,7 +157,6 @@ df['NEIGHBOURHOOD_ENCODED'] = df.groupby('NEIGHBOURHOOD_CLEANSED')['PRICE'].tran
 df['NEIGHBOURHOOD_ENCODED'] = np.log1p(df["NEIGHBOURHOOD_ENCODED"])
 df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
 
-
 ########################################################################################################################
 #                                                   BASE MODEL
 ########################################################################################################################
@@ -165,8 +167,8 @@ models = {"LGBM": LGBMRegressor(),
 df["PRICE_LOG"] = np.log1p(df["PRICE"])
 y = df["PRICE_LOG"]
 X = df.drop(["PRICE", "PRICE_LOG", "NEIGHBOURHOOD_CLEANSED"], axis=1)
-
 X.head()
+
 
 def cal_metric_for_regression(model, scoring, name):
     model = model
@@ -188,6 +190,8 @@ def cal_metric_for_regression(model, scoring, name):
 
 for name, model in models.items():
     cal_metric_for_regression(model, scoring=['neg_mean_squared_error', 'r2'], name=name)
+
+cal_metric_for_regression(model, scoring=['neg_mean_squared_error', 'r2'], name=name)
 '''
 ############## LGBM #################
 Train RMSE:  0.3593
@@ -210,8 +214,11 @@ Test R2:  0.5825
 #######################################################################################################################
 lgbm_model = LGBMRegressor()
 lgbm_model.get_params()
-lgbm_params = {"colsample_bytree": [0.3, 0.5, 0.7, 1],
+lgbm_params = {"num-leaves": [15, 24, 31, 45, 60],
                "n_estimators": [100, 1000, 1500, 2000, 5000],
+               "colsample_bytree": [0.3, 0.5, 0.7, 1],
+               "feature_fraction": [0.5, 0.7, 0.8, 1],
+               "bagging_fraction": [0.5, 0.7, 0.8, 1],
                "learning_rate": [0.1, 0.01, 0.001]}
 lgbm_best_grid = GridSearchCV(lgbm_model, lgbm_params, cv=5, n_jobs=-1, verbose=1).fit(X, y)
 final_lgbm_model = lgbm_model.set_params(**lgbm_best_grid.best_params_).fit(X, y)
@@ -228,12 +235,13 @@ Test R2:  0.5852
 # XgBoost
 ###################
 xgboost_model = XGBRegressor()
-xgboost_params = {"max_depth": [5, 8, None],
-                "learning_rate": [0.001, 0.01, 0.1],
-                "colsample_bytree": [0.5, 0.7, 1, None],
-                "n_estimators": [100, 500, 1000]}
+xgboost_model.get_params()
+xgboost_params = {"max_depth": [5, 6, 8, None],
+                  "learning_rate": [0.001, 0.01, 0.1],
+                  "colsample_bytree": [0.5, 0.8, 1, None],
+                  "n_estimators": [100, 500, 1000]}
 
-xgboost_best_grid = GridSearchCV(xgboost_model, xgboost_params , cv=5, n_jobs=-1, verbose=True).fit(X, y)
+xgboost_best_grid = GridSearchCV(xgboost_model, xgboost_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
 xgboost_final = xgboost_model.set_params(**xgboost_best_grid.best_params_).fit(X, y)
 cal_metric_for_regression(xgboost_final, scoring=['neg_mean_squared_error', 'r2'], name="XGBoost")
 
@@ -251,17 +259,11 @@ Test R2:  0.5881
 catboost_model = CatBoostRegressor()
 catboost_model.get_params()
 catboost_params = {"iterations": [200, 500, 1000, 2000],
-                  "depth": [3, 6, 10, 12],
-                  "learning_rate": [0.1, 0.01, 0.001]}
+                   "depth": [3, 6, 10, 12],
+                   "learning_rate": [0.1, 0.01, 0.001]}
 catboost_best_grid = GridSearchCV(catboost_model, catboost_params, cv=5, n_jobs=-1, verbose=1).fit(X, y)
 final_catboost_model = catboost_model.set_params(**catboost_best_grid.best_params_).fit(X, y)
 cal_metric_for_regression(final_catboost_model, scoring=['neg_mean_squared_error', 'r2'], name="CatBoost")
-
-
-
-
-
-
 
 
 def plot_importance(model, features, num=len(X), save=False):
@@ -277,9 +279,7 @@ def plot_importance(model, features, num=len(X), save=False):
         plt.savefig('importances.png')
 
 
-plot_importance(xgboost_final, X)
-
-
+plot_importance(XGBRegressor().fit(X, y), X)
 
 
 def learning_curve_plot(model, X, y):
@@ -318,12 +318,5 @@ def val_curve_params(model, X, y, param_name, param_range, scoring, cv=10):
     plt.legend(loc='best')
     plt.show(block=True)
 
+
 val_curve_params(final_lgbm_model, X, y, "n_estimators", range(100, 5000), scoring="neg_root_mean_squared_error")
-
-
-xgboost_model = xgboost_final.fit(X, y)
-sample1 = X.sample(1)  # 6992
-y_pred1 = xgboost_model.predict(X[X.index == 7669])
-y_pred1 = np.expm1(y_pred1)  # 1259.77692868, 750
-
-np.expm1(y[y.index == 7669])

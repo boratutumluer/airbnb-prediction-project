@@ -13,8 +13,10 @@
         width: 30%;
         padding: 10px;
         background-color: #f1f1f1;
+        overflow: scroll;
     }
     form {
+        display: none;
         position: absolute;
         background-color: #f1f1f1;
         margin: auto;
@@ -23,11 +25,13 @@
         left: 0;
         bottom: 0;
         right: 0;
+        width: 500px;
         display: inline-table;
-        font-size: small;
+        font-size: larger;
         text-align: -webkit-center;
     }
     #form-div {
+    display: none;
         position: absolute;
         top: 60px;
         bottom: 0;
@@ -44,9 +48,11 @@
         padding-top: 10px;
         margin-left: 50px;
         font-size: 18px;
-
     }
     .dropdown-menu {
         max-height: 280px;
         overflow-y: auto;
+    }
+    .swal2-title {
+    font-size: revert !important;
     }

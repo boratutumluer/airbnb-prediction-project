@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Mapbox Harita ve İstatistikler</title>
+    <title>Airbnb Prediction App</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
@@ -10,21 +10,35 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
     <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-    <script>
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+            integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js"
+            integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
+            integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script defer>
         const APP_VAR = {
             access_token:'{{ mapbox_access_token }}',
             neighbourhood_json: {{ neighbourhoods|tojson|safe }},
             points: {{ points|tojson|safe }},
             bbox: {{ neighbourhoods_bbox|tojson|safe }},
-            accommodations: {{accommodates}},
-            prices: {{price}}
+            accommodations: {{ accommodates }},
+            accommodates_price_list: {{ accommodates_price_list }},
+            avg_price_per_neigbourhood_neigbourhood: {{ avg_price_per_neigbourhood_neigbourhood|tojson|safe  }},
+            avg_price_per_neigbourhood_price: {{ avg_price_per_neigbourhood_price }},
+            property_type_statistic_types: {{ property_type_statistic_types|tojson|safe }},
+            property_type_statistic_count: {{ property_type_statistic_count }}
         }
+
+
+
     </script>
     <script type="text/javascript" src="{{ url_for('static',filename='map.js') }}" defer></script>
-    <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='style.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='style.css') }}">
 
 </head>
 <body>
@@ -46,9 +60,9 @@
                     <div>
                         <select id="select-district">
                             <option selected disabled id="selected">Filter by District</option>
-                                {% for labels in neighbourhoods_labels %}
-                                    <option value="{{ labels }}">{{ labels }}</option>
-                                {% endfor %}
+                            {% for labels in neighbourhoods_labels %}
+                            <option value="{{ labels }}">{{ labels }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </li>
@@ -58,107 +72,172 @@
 </div>
 
 <div id='map'></div>
-<div id="form-div"><form method="POST">
-    <table>
-      <tr>
-        <td><label for="district">Neigbourhood:</label></td>
-        <td>
-          <select id="district" name="district" style="width: 70px;">
-            <option selected disabled hidden></option> {% for i in neighbourhoods_labels %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
-          </select>
-        </td>
-        <td><label for="property_types">Property Type:</label></td>
-        <td>
-          <select id="property_types" name="property_types" style="width: 70px;">
-            <option selected disabled hidden></option> {% for i in property_types %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
-          </select>
-        </td>
-      </tr>
-      <tr>
-        <td><label for="room_types">Room Type:</label></td>
-        <td>
-          <select id="room_types" name="room_types" style="width: 70px;">
-            <option selected disabled hidden></option> {% for i in room_types %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
-          </select>
-        </td>
-        <td><label for="bathroom_types">Bathroom Type:</label></td>
-        <td>
-          <select id="bathroom_types" name="bathroom_types" style="width: 70px;">
-            <option selected disabled hidden></option> {% for i in bathroom_types %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
-          </select>
-        </td>
-      </tr>
-        <tr>
-        <td><label for="bathroom_types">Host Response Time:</label></td>
-        <td>
-          <select id="response_time" name="response_time" style="width: 70px;">
-            <option selected disabled hidden></option> {% for i in host_response_times %} <option value="{{ i }}">{{ i }}</option> {% endfor %}
-          </select>
-        </td>
-        </tr>
-      <tr>
-        <td><label for="accommodates">Accommodates:</label></td>
-        <td><input type="number" id="accommodates" placeholder="2" name="accommodates" min="0" style="width: 70px;"></td>
-        <td><label for="bedrooms">Bedrooms:</label></td>
-        <td><input type="number" id="bedrooms" placeholder="1" name="bedrooms" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="minimum_night">Minimum Night:</label></td>
-        <td><input type="number" id="minimum_night" placeholder="1" name="minimum_night" min="0" style="width: 70px;"></td>
-        <td><label for="beds">Beds:</label></td>
-        <td><input type="number" id="beds" placeholder="1" name="beds" min="0" style="width: 70px;"></td>
-      <tr>
-      <tr>
-        <td><label for="availability_30">Availability 30:</label></td>
-        <td><input type="number" id="availability_30" placeholder="15"name="availability_30" min="0" style="width: 70px;"></td>
-        <td><label for="bathroom">Bathroom:</label></td>
-        <td><input type="number" id="bathroom" placeholder="1" name="bathroom" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="availability_365">Availability 365:</label></td>
-        <td><input type="number" id="availability_365" placeholder="150" name="availability_365" min="0" style="width: 70px;"></td>
-        <td><label for="nlisting">Number of Listings:</label></td>
-        <td><input type="number" id="nlisting"  placeholder="1" name="nlisting" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="number_of_score">Number of Reviews:</label></td>
-        <td><input type="number" id="number_of_score" placeholder="50" name="number_of_score" min="0" style="width: 70px;"></td>
-        <td><label for="reviewscore">Review Score:</label></td>
-        <td><input type="number" id="reviewscore" placeholder="1-5" name="reviewscore" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="accuracyscore">Accuracy Score:</label></td>
-        <td><input type="number" id="accuracyscore" placeholder="1-5" name="accuracyscore" min="0" style="width: 70px;"></td>
-        <td><label for="cleanliness">Cleanliness Score:</label></td>
-        <td><input type="number" id="cleanliness" placeholder="1-5" name="cleanliness" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="interactionscore">Interaction Reviews:</label></td>
-        <td><input type="number" id="interactionscore" placeholder="1-5" name="interactionscore" min="0" style="width: 70px;"></td>
-        <td><label for="locationscore">Location Score:</label></td>
-        <td><input type="number" id="locationscore" placeholder="1-5" name="locationscore" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="checkinscore">Checkin Score:</label></td>
-        <td><input type="number" id="checkinscore" placeholder="1-5" name="checkinscore" min="0" style="width: 70px;"></td>
-        <td><label for="valuescore">Value Score:</label></td>
-        <td><input type="number" id="valuescore"  placeholder="1-5"name="valuescore" min="0" style="width: 70px;"></td>
-      </tr>
-      <tr>
-        <td><label for="hostsince">Host Since:</label></td>
-        <td><input type="number" id="hostsince" placeholder="100days" name="hostsince" min="0" style="width: 70px;"></td>
-        <td><label for="responserate">Response Rate:</label></td>
-        <td><input type="number" id="responserate" placeholder="1-5" name="responserate" min="0" style="width: 70px;"></td>
-      </tr>
-    </table><br>
-    <button type="submit" class="btn btn-primary" style="font-size: x-small; text-align: center;">Submit</button>
-  </form></div>
-
+<div id="form-div">
+    <form method="POST">
+        <table>
+            <tr>
+                <td>
+                    <label for="neighbourhood_cleansed">Neigbourhood:</label></td>
+                <td>
+                    <select class="form-select" aria-label="Default select example" id="neighbourhood_cleansed"
+                            name="neighbourhood_cleansed"
+                            style="width: 180px; margin-right: 10px;">
+                        <option selected disabled hidden></option>
+                        {% for i in neighbourhoods_labels %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <label for="property_type">Property Type:</label></td>
+                <td>
+                    <select class="form-select" aria-label="Default select example" id="property_type"
+                            name="property_type" style="width: 210px;">
+                        <option selected disabled hidden></option>
+                        {% for i in property_types %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label for="room_type">Room Type:</label></td>
+                <td>
+                    <select class="form-select" aria-label="Default select example" id="room_type" name="room_type"
+                            style="width: 180px;">
+                        <option selected disabled hidden></option>
+                        {% for i in room_types %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td><label for="host_response_time">Host Response Time:</label></td>
+                <td>
+                    <select class="form-select" aria-label="Default select example" id="host_response_time"
+                            name="host_response_time" style="width: 210px;">
+                        <option selected disabled hidden></option>
+                        {% for i in host_response_times %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label for="bathrooms_text">Bathroom Type:</label></td>
+                <td>
+                    <select class="form-select" aria-label="Default select example" id="bathrooms_text"
+                            name="bathrooms_text" style="width: 180px; margin-bottom: 20px;">
+                        <option selected disabled hidden></option>
+                        {% for i in bathroom_types %}
+                        <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td><label for="accommodates">Accommodates:</label></td>
+                <td><input class="form-control" type="number" id="accommodates" placeholder="2" name="accommodates"
+                           min="0"
+                           style="width: 100px;"></td>
+                <td><label for="bedrooms">Bedrooms:</label></td>
+                <td><input class="form-control" type="number" id="bedrooms" placeholder="1" name="bedrooms" min="0"
+                           style="width: 100px;">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="minimum_nights">Minimum Night:</label></td>
+                <td><input class="form-control" type="number" id="minimum_nights" placeholder="1" name="minimum_nights"
+                           min="0"
+                           style="width: 100px;"></td>
+                <td><label for="beds">Beds:</label></td>
+                <td><input class="form-control" type="number" id="beds" placeholder="1" name="beds" min="0"
+                           style="width: 100px;"></td>
+            <tr>
+            <tr>
+                <td><label for="availability_30">Availability 30:</label></td>
+                <td><input class="form-control" type="number" id="availability_30" placeholder="15"
+                           name="availability_30" min="0"
+                           style="width: 100px;"></td>
+                <td><label for="bathrooms">Bathrooms:</label></td>
+                <td><input class="form-control" type="number" id="bathrooms" placeholder="1" name="bathrooms" min="0"
+                           style="width: 100px;">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="availability_365">Availability 365:</label></td>
+                <td><input class="form-control" type="number" id="availability_365" placeholder="150"
+                           name="availability_365" min="0"
+                           style="width: 100px;"></td>
+                <td><label for="calculated_host_listings_count">Number of Listings:</label></td>
+                <td><input class="form-control" type="number" id="calculated_host_listings_count" placeholder="1"
+                           name="calculated_host_listings_count" min="0" style="width: 100px;"></td>
+            </tr>
+            <tr>
+                <td><label for="number_of_reviews">Number of Reviews:</label></td>
+                <td><input class="form-control" type="number" id="number_of_reviews" placeholder="50"
+                           name="number_of_reviews" min="0"
+                           style="width: 100px;"></td>
+                <td><label for="review_scores_rating">Review Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_rating" placeholder="4.7"
+                           name="review_scores_rating" min="0"
+                           style="width: 100px;"></td>
+            </tr>
+            <tr>
+                <td><label for="review_scores_accuracy">Accuracy Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_accuracy" placeholder="4.7"
+                           name="review_scores_accuracy"
+                           min="0" style="width: 100px;"></td>
+                <td><label for="review_scores_cleanliness">Cleanliness Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_cleanliness" placeholder="4.6"
+                           name="review_scores_cleanliness" min="0" style="width: 100px;"></td>
+            </tr>
+            <tr>
+                <td><label for="review_scores_communication">Communication Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_communication" placeholder="4.8"
+                           name="review_scores_communication" min="0" style="width: 100px;"></td>
+                <td><label for="review_scores_location">Location Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_location" placeholder="4.7"
+                           name="review_scores_location"
+                           min="0" style="width: 100px;"></td>
+            </tr>
+            <tr>
+                <td><label for="review_scores_checkin">Checkin Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_checkin" placeholder="4.8"
+                           name="review_scores_checkin"
+                           min="0" style="width: 100px;"></td>
+                <td><label for="review_scores_value">Value Score:</label></td>
+                <td><input class="form-control" type="number" id="review_scores_value" placeholder="4.6"
+                           name="review_scores_value" min="0"
+                           style="width: 100px;"></td>
+            </tr>
+            <tr>
+                <td><label for="host_since">Host Since:</label></td>
+                <td><input class="form-control" type="number" id="host_since" placeholder="1500" name="host_since"
+                           min="0"
+                           style="width: 100px;"></td>
+                <td><label for="host_response_rate">Response Rate:</label></td>
+                <td><input class="form-control" type="number" id="host_response_rate" placeholder="100"
+                           name="host_response_rate" min="0"
+                           style="width: 100px;"></td>
+            </tr>
+        </table>
+        <br>
+        <button id="sendForm" type="button" class="btn btn-primary"
+                style="font-size: larger; text-align: center; background-color: #7066e0">
+            Submit
+        </button>
+    </form>
+</div>
 <div id='stats'>
     <h3 style="text-align:center">Statistics</h3>
+    <canvas id="room_type_chart"></canvas>
+    <hr>
+    <canvas id="property_type_pie_chart"></canvas>
+    <hr>
     <canvas id="accommodates_price_chart"></canvas>
     <hr>
-    <canvas id="room_type_chart"></canvas>
+    <canvas id="avg_price_per_neighbourhood"></canvas>
+
 </div>
 </body>
 </html>

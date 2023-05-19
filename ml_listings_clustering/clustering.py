@@ -21,10 +21,9 @@ conn = engine.connect()
 df_ = pd.read_csv("ml_listings_clustering/datasets/listings.csv")
 df = df_.copy()
 
-
 columns = ["neighbourhood_cleansed", 'property_type', 'room_type', 'accommodates', 'bathrooms_text',
            'bedrooms', 'beds', 'amenities', 'minimum_nights', 'availability_30', 'availability_60', 'availability_90',
-           'availability_365', 'first_review', 'last_review', 'number_of_reviews', 'reviews_per_month',
+           'availability_365', 'number_of_reviews', 'reviews_per_month', 'last_review',
            'review_scores_rating', 'review_scores_accuracy', 'review_scores_cleanliness', 'review_scores_checkin',
            'review_scores_communication', 'review_scores_location', 'review_scores_value', 'host_since',
            'host_response_time', 'host_response_rate', 'host_is_superhost', 'host_has_profile_pic',
@@ -32,13 +31,12 @@ columns = ["neighbourhood_cleansed", 'property_type', 'room_type', 'accommodates
            'name']
 
 df = df[columns]
-df.drop_duplicates(inplace=True)
+
 ########################################################################################################################
 #                                       DATA PRE-PROCESSING
 ########################################################################################################################
 df["price"] = df["price"].apply(lambda x: float(x.split('$')[1].split('.00')[0].replace(',', '')))
 df["host_since"] = pd.to_datetime(df["host_since"])
-df["first_review"] = pd.to_datetime(df["first_review"])
 df["last_review"] = pd.to_datetime(df["last_review"])
 ##############################################
 #               MISSING VALUES
@@ -46,17 +44,6 @@ df["last_review"] = pd.to_datetime(df["last_review"])
 na_columns = [col for col in df.columns if df[col].isnull().sum() > 0]
 for col in na_columns:
     df.dropna(subset=col, inplace=True)
-
-# df["reviews_per_month"].fillna(0, inplace=True)
-# df["name"].fillna("None", inplace=True)
-# for col in ["bedrooms", "beds", "bathrooms_text", "first_review", "last_review"]:
-#     df.dropna(subset=col, inplace=True)
-# df["host_response_time"].fillna(df["host_response_time"].mode()[0], inplace=True)
-# df["host_response_rate"].fillna(df["host_response_rate"].mode()[0], inplace=True)
-# review_na_cols = ["review_scores_checkin", "review_scores_location", "review_scores_value", "review_scores_accuracy", "review_scores_cleanliness", "review_scores_communication"]
-# for col in review_na_cols:
-#     df[col].fillna(0, inplace=True)
-
 ##############################################
 #                   OUTLIERS
 ##############################################
@@ -79,13 +66,9 @@ df.loc[(df["bathrooms_text"] == "baths") | (df["bathrooms_text"] == "Half-bath")
 df.loc[(df["bathrooms_text"] == "shared baths") | (
         df["bathrooms_text"] == "Shared half-bath"), "bathrooms_text"] = "shared bath"
 
-########################################################################################################################
-#                                       FEATURE ENGINEERING (FOR PREDICTION)
-########################################################################################################################
 df.loc[(df["bathrooms_text"] == "bath"), "bathrooms_text"] = "normal"
 df.loc[(df["bathrooms_text"] == "shared bath"), "bathrooms_text"] = "shared"
 df.loc[(df["bathrooms_text"] == "private bath"), "bathrooms_text"] = "private"
-
 
 amenities_count_list = []
 for i in range(len(df["amenities"])):
@@ -93,24 +76,10 @@ for i in range(len(df["amenities"])):
     amenities_count_list.append(count)
 df["amenities"] = amenities_count_list
 
-
-from geopy.distance import great_circle
-def calculate_distance(latitude, longitude):
-    istanbul_center = (41.0145545, 28.956243)
-    listing = (latitude, longitude)
-    return great_circle(istanbul_center, listing).km
-
-df['distance'] = df.apply(lambda x: calculate_distance(x.latitude, x.longitude), axis=1)
-
-df["host_response_rate"] = df["host_response_rate"].apply(lambda x: int(x.strip("%")) / 100)
 today_date = pd.to_datetime(pd.to_datetime("today").date())
 df["host_since"] = df["host_since"].apply(lambda x: (today_date - x).days)
-df["host_segment"] = pd.qcut(df["host_since"], 5, ["E", "D", "C", "B", "A"])
-df["review_age"] = (df["last_review"] - df["first_review"]).dt.days
-df["review_segment"] = pd.qcut(df["review_age"], 4, ['D', 'C', 'B', 'A'])
-df.drop(["last_review", "first_review", "index"], inplace=True, axis=1)
-df.columns = [col.lower().replace(" ", "_") for col in df.columns]
-df.head()
+df["review_age"] = df["last_review"].apply(lambda x: (today_date - x).days)
+
 ########################################################################################################################
 #                                       CLUSTERING DATA AND SENDING DATABASE
 ########################################################################################################################
@@ -147,4 +116,5 @@ for i, v in enumerate(neighbourhood):
         cluster_df_tmp_last["segment"] = kmeans.labels_ + 1
 
     cluster_df_tmp_last.to_sql(f"{v.lower()}_cluster", conn, if_exists="replace")
+
 

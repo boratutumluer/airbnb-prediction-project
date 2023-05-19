@@ -38,18 +38,6 @@ mapboxgl.accessToken = APP_VAR.access_token;
             map.setLayoutProperty("neighbourhood_highlight", "visibility", "none");
           }
         }
-
-        function updateRoomChartData(){
-            roomTypeChart.data.datasets[0].data = [14765, 194, 4563, 2000];
-            roomTypeChart.update()
-        }
-
-        function updateCapacityChartData(){
-            capacityChart.data.datasets[0].data = [14765, 194, 4563, 2000];
-            capacityChart.update();
-        }
-
-
 // #####################################################################################################################
                                                     <!--NEIGHBOURHOOD-->
         const neighbour_geojson =  JSON.parse(APP_VAR.neighbourhood_json);
@@ -247,6 +235,7 @@ mapboxgl.accessToken = APP_VAR.access_token;
             const style = map.getStyle()
             style.sources.point.cluster = false
             map.setStyle(style)
+
         });
 
 // #####################################################################################################################
@@ -318,8 +307,9 @@ mapboxgl.accessToken = APP_VAR.access_token;
         });
 // #####################################################################################################################
                                                     <!--POP-UP-->
-
+        let predictMode = false;
         map.on('click', 'unclustered-point', (k) => {
+            if (predictMode) return;
             const coordinates = k.features[0].geometry.coordinates.slice();
             const description = k.features[0].properties.description;
 
@@ -337,53 +327,52 @@ mapboxgl.accessToken = APP_VAR.access_token;
 
 // #####################################################################################################################
                                                 <!--ADD NEW POINT-->
+        const predictionBtn =  document.getElementById('predictBtn');
+        predictionBtn.addEventListener('click',()=>{
+            if(!predictMode){
+                predictionBtn.style.color = 'red';
+                predictMode = true;
+            } else {
+                predictionBtn.style.color = '';
+                predictMode = false;
+            }
 
+        })
         map.on('click', function(e) {
+            if (!predictMode) return;
+            map.getCanvas().style.cursor = 'pointer';
 			var lngLat = e.lngLat;
 			var popup = new mapboxgl.Popup()
 				.setLngLat(lngLat)
-				.setHTML('<form id="popup-form"><label>Property name:</label><br><input type="text" id="property-name"><br><label>Property value:</label><br><input type="text" id="property-value"><br><button type="submit">Save</button></form>')
+				.setHTML(document.getElementById('form-div').innerHTML)
 				.addTo(map);
 
-			document.getElementById('popup-form').addEventListener('submit', function(e) {
-				e.preventDefault();
-				var propertyName = document.getElementById('property-name').value;
-				var propertyValue = document.getElementById('property-value').value;
-<!--				saveProperty(lngLat, propertyName, propertyValue);-->
-				popup.remove();
-			});
+
+			const sendBtn = document.getElementById('sendForm');
+            sendBtn.addEventListener('click',()=>{
+                let link = 'http://127.0.0.1:5000/sendmapdata?'
+                const formFields = [...document.querySelectorAll('select, input')].filter(i=>i.id!=='select-district');
+                formFields.forEach(i=>{
+                    link+= `&${i.id}=${i.value == '' ? i.placeholder : i.value}`
+                })
+                link += '&coordx=' + lngLat.lng
+                link += '&coordy=' + lngLat.lat
+
+                fetch(link).then(response => response.json()).then(data =>{
+                const predictionPrice = data.prediction_price;
+
+                document.querySelector('#map > div.mapboxgl-popup.mapboxgl-popup-anchor-bottom > div.mapboxgl-popup-content > form').style.display = 'none';
+                document.querySelector('#map > div.mapboxgl-popup.mapboxgl-popup-anchor-bottom > div.mapboxgl-popup-content > button').style.display = 'none';
+                document.querySelector('#map > div.mapboxgl-popup.mapboxgl-popup-anchor-bottom').style.display = 'none';
+                Swal.fire(`Suggested Price Per Night: ₺${predictionPrice}`);
+
+                });
+
+            })
 		});
 
-<!--		function saveProperty(lngLat, name, value) {-->
-<!--			var url = 'YOUR_API_URL'; // Your API endpoint URL-->
-<!--			var data = { lng: lngLat.lng, lat: lngLat.lat, name: name, value: value };-->
-<!--			fetch(url, {-->
-<!--				method: 'POST',-->
-<!--				body: JSON.stringify(data),-->
-<!--				headers: {-->
-<!--					'Content-Type': 'application/json'-->
-<!--				}-->
-<!--			})-->
-<!--			.then(response => response.json())-->
-<!--			.then(data => console.log(data))-->
-<!--			.catch(error => console.error(error));-->
-<!--		}-->
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                            <!--        STATISTICS-->
 // #####################################################################################################################
-
-                                        <!--        STATISTICS-->
         var accommodates_price = document.getElementById('accommodates_price_chart').getContext('2d');
         const capacityChart = new Chart(accommodates_price, {
             type: "line",
@@ -393,7 +382,7 @@ mapboxgl.accessToken = APP_VAR.access_token;
                     label: 'capacity',
                     backgroundColor: "rgba(0,0,255,1.0)",
                     borderColor: "rgba(0,0,255,0.1)",
-                    data: APP_VAR.prices,
+                    data: APP_VAR.accommodates_price_list,
                     fill: false
                 }]
             },
@@ -458,5 +447,61 @@ mapboxgl.accessToken = APP_VAR.access_token;
                 legend: {
                      display: false
                         }
+            }
+        });
+
+       var avg_price_per_neighbourhood = document.getElementById('avg_price_per_neighbourhood').getContext('2d');
+         const avgPriceNeighbourhood = new Chart(avg_price_per_neighbourhood, {
+            type: "horizontalBar",
+            data: {
+                labels: APP_VAR.avg_price_per_neigbourhood_neigbourhood,
+                datasets: [{
+                    backgroundColor: "rgb(130, 148, 196)",
+                    borderColor: "rgba(0,0,255,0.1)",
+                    data: APP_VAR.avg_price_per_neigbourhood_price,
+                    fill: false
+                }]
+            },
+            options: {
+                title: {
+                    display: true,
+                    text: "Avg. Price Per Neighbourhood"
+                },
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        },
+                    }],
+                    xAxes: [{
+                        scaleLabel: {
+                            display: true,
+                            labelString: "Price"
+                        }
+                    }]
+                },
+                legend: {
+                     display: false
+                        },
+                maintainAspectRatio: false,
+            }
+        });
+
+
+       var property_type_pie_chart = document.getElementById('property_type_pie_chart').getContext('2d');
+            const propertyPie = new Chart(property_type_pie_chart, {
+            type: "pie",
+            data: {
+            labels: APP_VAR.property_type_statistic_types,
+            datasets: [{
+              backgroundColor: ["rgb(166, 208, 221)", "rgb(255, 105, 105)", "rgb(255, 211, 176)", "rgb(255, 249, 222)"],
+              data: APP_VAR.property_type_statistic_count
+            }]
+            },
+            options: {
+            title: {
+              display: true,
+              text: "Property Type"
+            }
             }
         });
