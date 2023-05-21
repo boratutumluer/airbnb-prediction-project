@@ -14,8 +14,8 @@ from airbnb.helpers.data_prep import *
 from airbnb.helpers.eda import *
 
 from sklearn.preprocessing import RobustScaler, MinMaxScaler, StandardScaler
-from sklearn.model_selection import cross_validate, cross_val_score, GridSearchCV, validation_curve, learning_curve
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import cross_validate, cross_val_score, GridSearchCV, validation_curve, learning_curve, train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor, export_graphviz, export_text
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
@@ -23,6 +23,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 from catboost import CatBoostRegressor
+import optuna
 
 pd.set_option("display.width", 220)
 pd.set_option("display.max_columns", None)
@@ -32,27 +33,69 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 engine = create_engine('postgresql://postgres:bora00254613@localhost/airbnb')
 conn = engine.connect()
 
-df_ = pd.read_sql_query("SELECT * FROM all_data", con=conn)
+df_ = pd.read_sql_query("SELECT * FROM data_to_predict", con=conn)
 df = df_.copy()
 
-columns = [col for col in df.columns if col not in ["index", "listing_url", "segment", "name", "host_has_profile_pic"]]
-df = df[columns]
-
-high_correlated_cols(df, plot=True)
 ########################################################################################################################
 #                                       FEATURE ENGINEERING
 ########################################################################################################################
-# rare_analyser(df, "price", ["property_type"])
+# Rare Analysis for PROPERTY_TYPE
 tmp = df["property_type"].value_counts() / len(df)
 labels = tmp[tmp < 0.05].index
 df["property_type"] = np.where(df["property_type"].isin(labels), "Rare", df["property_type"])
 
+from geopy.distance import great_circle
+
+def calculate_distance(latitude, longitude):
+    istanbul_center = (41.0145545, 28.956243)
+    listing = (latitude, longitude)
+    return great_circle(istanbul_center, listing).km
+
+
+df['distance_from_center'] = df.apply(lambda x: calculate_distance(x.latitude, x.longitude), axis=1)
+
+district_count = df.groupby("neighbourhood_cleansed").size().reset_index().rename(columns={0: "count"})
+df = df.merge(district_count, on="neighbourhood_cleansed", how="left")
+df.index = df["id"]
+df.loc[(df["count"] >= 1000), "district_density"] = "very high density"
+df.loc[(1000 >= df["count"]) & (df["count"] > 500), "district_density"] = "high density"
+df.loc[(500 >= df["count"]) & (df["count"] > 200), "district_density"] = "middle density"
+df.loc[(200 >= df["count"]) & (df["count"] > 100), "district_density"] = "low density"
+df.loc[(df["count"] <= 100), "district_density"] = "very low density"
+df.drop("count", axis=1, inplace=True)
+
+df["host_response_rate"] = df["host_response_rate"] / 100
+
+df["host_segment"] = pd.qcut(df["host_since"], 5, ["E", "D", "C", "B", "A"])
+df["review_segment"] = pd.qcut(df["review_age"], 5, ["A,", "B", "C", "D", "E"])
+
 df.columns = [col.upper().replace(" ", "_") for col in df.columns]
+
+cat_cols, num_cols, cat_but_car, num_but_cat = grab_col_names(df)
+num_cols = [col for col in num_cols if col != "PRICE"]
+
+# Log transformation
+for col in num_cols:
+    df[col] = np.log1p(df[col])
+# Standardization
+sc = StandardScaler()
+df[num_cols] = sc.fit_transform(df[num_cols])
+# Label Encoding
+binary_cols = [col for col in cat_cols if df[col].nunique() == 2]
+for col in binary_cols:
+    df = label_encoder(df, col)
+# One-Hot Encoding
+ohe_cols = [col for col in cat_cols if 10 > df[col].nunique() > 2]
+df = one_hot_encoder(df, ohe_cols)
+# Encoding for NEIGHBOURHOOD_CLEANSED
+df['NEIGHBOURHOOD_ENCODED'] = df.groupby('NEIGHBOURHOOD_CLEANSED')['PRICE'].transform('mean')
+df['NEIGHBOURHOOD_ENCODED'] = np.log1p(df["NEIGHBOURHOOD_ENCODED"])
+df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
 
 ##############################################
 #                   HISTOGRAMS
 ##############################################
-cat_cols, num_cols, cat_but_car, num_but_cat = grab_col_names(df)
+
 
 # for col in num_cols:
 #     num_summary(df, col, plot=True)
@@ -137,26 +180,6 @@ cat_cols, num_cols, cat_but_car, num_but_cat = grab_col_names(df)
 # plt.tight_layout()
 # # plt.savefig('before_transform.png', format='png', dpi=1000)
 # plt.show(block=True)
-
-num_cols = [col for col in num_cols if col != "PRICE"]
-# Normal dağılımın sağlanması için Log transformation uygulanması
-for col in num_cols:
-    df[col] = np.log1p(df[col])
-
-sc = StandardScaler()
-df[num_cols] = sc.fit_transform(df[num_cols])
-
-binary_cols = [col for col in cat_cols if df[col].nunique() == 2]
-for col in binary_cols:
-    df = label_encoder(df, col)
-
-ohe_cols = [col for col in cat_cols if 10 > df[col].nunique() > 2]
-df = one_hot_encoder(df, ohe_cols)
-
-df['NEIGHBOURHOOD_ENCODED'] = df.groupby('NEIGHBOURHOOD_CLEANSED')['PRICE'].transform('mean')
-df['NEIGHBOURHOOD_ENCODED'] = np.log1p(df["NEIGHBOURHOOD_ENCODED"])
-df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
-
 ########################################################################################################################
 #                                                   BASE MODEL
 ########################################################################################################################
@@ -164,10 +187,13 @@ models = {"LGBM": LGBMRegressor(),
           "XGBoost": XGBRegressor(),
           "CatBoost": CatBoostRegressor(verbose=False)}
 
+# Log transformation for PRICE
 df["PRICE_LOG"] = np.log1p(df["PRICE"])
+
+df.head()
+
 y = df["PRICE_LOG"]
-X = df.drop(["PRICE", "PRICE_LOG", "NEIGHBOURHOOD_CLEANSED"], axis=1)
-X.head()
+X = df.drop(["PRICE", "PRICE_LOG", "NEIGHBOURHOOD_CLEANSED", "ID"], axis=1)
 
 
 def cal_metric_for_regression(model, scoring, name):
@@ -191,80 +217,101 @@ def cal_metric_for_regression(model, scoring, name):
 for name, model in models.items():
     cal_metric_for_regression(model, scoring=['neg_mean_squared_error', 'r2'], name=name)
 
-cal_metric_for_regression(model, scoring=['neg_mean_squared_error', 'r2'], name=name)
 '''
 ############## LGBM #################
-Train RMSE:  0.3593
-Test RMSE:  0.446
-Train R2:  0.7348
-Test R2:  0.571
+Train RMSE:  0.3464
+Test RMSE:  0.4381
+Train R2:  0.7536
+Test R2:  0.5864
 ############## XGBoost #################
-Train RMSE:  0.2671
-Test RMSE:  0.4604
-Train R2:  0.8534
-Test R2:  0.5425
+Train RMSE:  0.2562
+Test RMSE:  0.4494
+Train R2:  0.8652
+Test R2:  0.5643
 ############## CatBoost #################
-Train RMSE:  0.3126
-Test RMSE:  0.4397
-Train R2:  0.7993
-Test R2:  0.5825
+Train RMSE:  0.3004
+Test RMSE:  0.4297
+Train R2:  0.8147
+Test R2:  0.6014
+
 '''
 #######################################################################################################################
 #                                                    MODEL TUNING
 #######################################################################################################################
-lgbm_model = LGBMRegressor()
-lgbm_model.get_params()
-lgbm_params = {"num-leaves": [15, 24, 31, 45, 60],
-               "n_estimators": [100, 1000, 1500, 2000, 5000],
-               "colsample_bytree": [0.3, 0.5, 0.7, 1],
-               "feature_fraction": [0.5, 0.7, 0.8, 1],
-               "bagging_fraction": [0.5, 0.7, 0.8, 1],
-               "learning_rate": [0.1, 0.01, 0.001]}
-lgbm_best_grid = GridSearchCV(lgbm_model, lgbm_params, cv=5, n_jobs=-1, verbose=1).fit(X, y)
-final_lgbm_model = lgbm_model.set_params(**lgbm_best_grid.best_params_).fit(X, y)
-cal_metric_for_regression(final_lgbm_model, scoring=['neg_mean_squared_error', 'r2'], name="LGBM")
+def lightgbm_optimization(trial):
+    # Define the search space for hyperparameters
+    params = {
+        'boosting_type': 'gbdt',
+        'num_leaves': trial.suggest_int('num_leaves', 10, 100),
+        'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.1),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.1, 0.9),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.1, 0.9),
+        'bagging_freq': trial.suggest_int('bagging_freq', 1, 10),
+        'min_child_samples': trial.suggest_int('min_child_samples', 1, 50),
+        'n_estimators': trial.suggest_int('n_estimators', 50, 5000),
+        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 100),
+        'max_depth': trial.suggest_int('max_depth', -1, 10)
+    }
+
+    # Split the data into train and validation sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Train the LightGBM model with the current set of hyperparameters
+    model = LGBMRegressor(**params)
+    model.fit(X_train, y_train)
+
+    # Evaluate the model on the validation set
+    y_pred = model.predict(X_test)
+    rmse = mean_squared_error(y_test, y_pred, squared=False)
+
+    # Return the evaluation metric value (to be minimized)
+    return rmse
+
+study = optuna.create_study(direction='minimize')
+study.optimize(lightgbm_optimization, n_trials=100)
+
+study.best_params
+study.best_value
+
+lgbm_model = LGBMRegressor(num_leaves=90,
+                           learning_rate=0.01,
+                           feature_fraction=0.40,
+                           bagging_fraction=0.80,
+                           bagging_freq=4,
+                           min_child_samples=40,
+                           n_estimators=4500,
+                           min_data_in_leaf=8,
+                           max_depth=0)
+
+cal_metric_for_regression(lgbm_model, scoring=['neg_mean_squared_error', 'r2'], name="LGBM")
+
+
 '''
 ############## LGBM #################
-Train RMSE:  0.3222
-Test RMSE:  0.4385
-Train R2:  0.7868
-Test R2:  0.5852
+Train RMSE:  0.1125
+Test RMSE:  0.4252
+Train R2:  0.974
+Test R2:  0.6099
 '''
 
-###################
-# XgBoost
-###################
-xgboost_model = XGBRegressor()
-xgboost_model.get_params()
-xgboost_params = {"max_depth": [5, 6, 8, None],
-                  "learning_rate": [0.001, 0.01, 0.1],
-                  "colsample_bytree": [0.5, 0.8, 1, None],
-                  "n_estimators": [100, 500, 1000]}
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = final_model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+r2_score(y_test, y_pred)  # 0.6982272457306952
 
-xgboost_best_grid = GridSearchCV(xgboost_model, xgboost_params, cv=5, n_jobs=-1, verbose=True).fit(X, y)
-xgboost_final = xgboost_model.set_params(**xgboost_best_grid.best_params_).fit(X, y)
-cal_metric_for_regression(xgboost_final, scoring=['neg_mean_squared_error', 'r2'], name="XGBoost")
+np.expm1(y_test)
+np.expm1(y_pred)
 
-'''
-############## XGBoost #################
-Train RMSE:  0.272
-Test RMSE:  0.4372
-Train R2:  0.848
-Test R2:  0.5881
-'''
-
-###################
-# CatBoost
-###################
-catboost_model = CatBoostRegressor()
-catboost_model.get_params()
-catboost_params = {"iterations": [200, 500, 1000, 2000],
-                   "depth": [3, 6, 10, 12],
-                   "learning_rate": [0.1, 0.01, 0.001]}
-catboost_best_grid = GridSearchCV(catboost_model, catboost_params, cv=5, n_jobs=-1, verbose=1).fit(X, y)
-final_catboost_model = catboost_model.set_params(**catboost_best_grid.best_params_).fit(X, y)
-cal_metric_for_regression(final_catboost_model, scoring=['neg_mean_squared_error', 'r2'], name="CatBoost")
-
+x_ax = range(len(y_test))
+plt.figure(figsize=(20, 6))
+plt.plot(x_ax, np.expm1(y_test), label="original")
+plt.plot(x_ax, np.expm1(y_pred), label="predicted")
+plt.title("Airbnb test and predicted data")
+plt.xlabel('X')
+plt.ylabel('Price')
+plt.legend(loc='best', fancybox=True, shadow=True)
+plt.grid(True)
+plt.show(block=True)
 
 def plot_importance(model, features, num=len(X), save=False):
     feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
@@ -279,7 +326,7 @@ def plot_importance(model, features, num=len(X), save=False):
         plt.savefig('importances.png')
 
 
-plot_importance(XGBRegressor().fit(X, y), X)
+plot_importance(lgbm_model.fit(X, y), X)
 
 
 def learning_curve_plot(model, X, y):
@@ -295,7 +342,7 @@ def learning_curve_plot(model, X, y):
     plt.show(block=True)
 
 
-learning_curve_plot(xgboost_final, X, y)
+learning_curve_plot(lgbm_model, X, y)
 
 
 def val_curve_params(model, X, y, param_name, param_range, scoring, cv=10):
@@ -319,4 +366,7 @@ def val_curve_params(model, X, y, param_name, param_range, scoring, cv=10):
     plt.show(block=True)
 
 
-val_curve_params(final_lgbm_model, X, y, "n_estimators", range(100, 5000), scoring="neg_root_mean_squared_error")
+
+
+
+

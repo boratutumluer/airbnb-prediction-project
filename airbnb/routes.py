@@ -33,13 +33,20 @@ def index():
 
     # POINTS
     point_properties = []
-    for url, name, neighbourhood, lon, lat, seg in zip(all_data["listing_url"],
-                                                       all_data["name"],
-                                                       all_data["neighbourhood_cleansed"],
-                                                       all_data["longitude"],
-                                                       all_data["latitude"],
-                                                       all_data["segment"]):
-        point_properties.append([[lon, lat], neighbourhood, seg, url, name])
+    for url, name, neighbourhood, lon, lat, seg, room, bedroom, bed, bath, bath_text, property in zip(
+            all_data["listing_url"],
+            all_data["name"],
+            all_data["neighbourhood_cleansed"],
+            all_data["longitude"],
+            all_data["latitude"],
+            all_data["segment"],
+            all_data["room_type"],
+            all_data["bedrooms"],
+            all_data["beds"],
+            all_data["bathrooms"],
+            all_data["bathrooms_text"],
+            all_data["property_type"]):
+        point_properties.append([[lon, lat], neighbourhood, seg, url, name, room, bedroom, bed, bath, bath_text, property])
 
     # STATISTICS
     accommodates_price = all_data.groupby("accommodates")["price"].mean().reset_index()
@@ -124,7 +131,7 @@ def predict():
     data = Data()
     data.insert_data(table="data_to_predict", values=values)
     df = data.get_data(table="data_to_predict")
-    model = joblib.load("lgbm.pkl")
+    model = joblib.load("ml_price_prediction/lgbm_final_model.pkl")
     X, y = data_preprocessing(df)
     X_sample = X[-1:]
     prediction_price = round(np.expm1(model.predict(X_sample))[0])

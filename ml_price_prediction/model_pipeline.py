@@ -14,12 +14,13 @@ pd.set_option("display.width", 220)
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import cross_validate, GridSearchCV
+from sklearn.model_selection import cross_validate, GridSearchCV, train_test_split
 from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 from catboost import CatBoostRegressor
 from sklearn.ensemble import VotingRegressor
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import r2_score
+import optuna
 
 engine = create_engine('postgresql://postgres:bora00254613@localhost/airbnb')
 conn = engine.connect()
@@ -110,76 +111,61 @@ def base_models(X, y, scoring=['neg_mean_squared_error', 'r2']):
 
 
 # Hyperparameter Optimization
-lgbm_params = {"colsample_bytree": [0.3, 0.5, 0.7, 1],
-               "n_estimators": [2000, 5000, 7000, 8000],
-               "learning_rate": [0.1, 0.01, 0.001]}
+def lightgbm_optimization(trial):
+    # Define the search space for hyperparameters
+    params = {
+        'boosting_type': 'gbdt',
+        'num_leaves': trial.suggest_int('num_leaves', 10, 100),
+        'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.1),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.1, 0.9),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.1, 0.9),
+        'bagging_freq': trial.suggest_int('bagging_freq', 1, 10),
+        'min_child_samples': trial.suggest_int('min_child_samples', 1, 50),
+        'n_estimators': trial.suggest_int('n_estimators', 50, 5000),
+        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 1, 100),
+        'max_depth': trial.suggest_int('max_depth', -1, 10)
+    }
 
-xgboost_params = {"max_depth": [8, 10, 12],
-                  "learning_rate": [0.001, 0.01, 0.1],
-                  "colsample_bytree": [0.3, 0.5, None],
-                  "n_estimators": [1000, 3000]}
+    # Split the data into train and validation sets
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-catboost_params = {"iterations": [200, 500],
-                   "learning_rate": [0.01, 0.1],
-                   "depth": [3, 6]}
+    # Train the LightGBM model with the current set of hyperparameters
+    model = LGBMRegressor(**params)
+    model.fit(X_train, y_train)
 
-regressors = [("LGBM", LGBMRegressor(), lgbm_params),
-              ("XGBoost", XGBRegressor(), xgboost_params),
-              ("CatBoost", CatBoostRegressor(), catboost_params)]
+    # Evaluate the model on the validation set
+    y_pred = model.predict(X_test)
+    r2 = r2_score(y_test, y_pred)
+    print("R2_Score: ", r2)
 
+    return r2
 
-def hyperparameter_optimization(X, y, cv=5, scoring=['neg_mean_squared_error', 'r2']):
-    print("Hyperparameter Optimization...")
-    best_models = {}
-    for name, regressor, params in regressors:
-        print(f"############## {name} #################")
-        cv_results = cross_validate(regressor, X, y, cv=10, scoring=scoring, return_train_score=True)
-        print(f"Test R2 (Before): {round(cv_results['test_r2'].mean(), 4)}")
-        print(f"Test RMSE (Before): {round(np.sqrt(-cv_results['test_neg_mean_squared_error'].mean()), 4)}")
-
-        gs_best = GridSearchCV(regressor, params, cv=cv, n_jobs=-1, verbose=1).fit(X, y)
-        final_model = regressor.set_params(**gs_best.best_params_)
-        cv_results = cross_validate(final_model, X, y, cv=10, scoring=scoring, return_train_score=True)
-        print(f"Best Params: {gs_best.best_params_}")
-        print(f"Test R2 (After): {round(cv_results['test_r2'].mean(), 4)}")
-        print(f"Test RMSE (After): {round(np.sqrt(-cv_results['test_neg_mean_squared_error'].mean()), 4)}")
-
-        best_models[name] = final_model
-
-    return best_models
-
-
-def voting_regressor(best_models, X, y):
-    print("Voting Regressor...")
-    voting_reg = VotingRegressor(estimators=[("LGBM", best_models["LGBM"]),
-                                             ("XGBoost", best_models["XGBoost"]),
-                                             ("CatBoost", best_models["CatBoost"])]).fit(X, y)
-
-    cv_results = cross_validate(voting_reg, X, y, cv=5, scoring=['neg_mean_squared_error', 'r2'],
-                                return_train_score=True)
-    train_rmse = np.sqrt(-cv_results['train_neg_mean_squared_error'].mean())
-    test_rmse = np.sqrt(-cv_results['test_neg_mean_squared_error'].mean())
-    train_r2 = cv_results['train_r2'].mean()
-    test_r2 = cv_results['test_r2'].mean()
-
-    print("############## Voted Regressor #################")
-    print("Train RMSE: ", round(train_rmse, 4))
-    print("Test RMSE: ", round(test_rmse, 4))
-    print("Train R2: ", round(train_r2, 4))
-    print("Test R2: ", round(test_r2, 4))
-
-    return voting_reg
-
+# X, y = data_preprocessing(df)
+# base_models(X, y)
+# study = optuna.create_study(direction='minimize')
+# study.optimize(lightgbm_optimization, n_trials=100)
+# study.best_params
 
 '''
-{'colsample_bytree': 0.3, 'learning_rate': 0.01, 'n_estimators': 5000}
-############## LGBM #################
-Test R2 (After): 0.6093
-Test RMSE (After): 0.4255
-
-
-Best Params: {'colsample_bytree': 0.5, 'learning_rate': 0.01, 'max_depth': 8, 'n_estimators': 1000}
-############## XGBoost #################
-Test R2 (After): 0.6071
-Test RMSE (After): 0.4271
+num_leaves=90,
+learning_rate=0.01,
+feature_fraction=0.50,
+bagging_fraction=0.80,
+bagging_freq=4,
+min_child_samples=40,
+n_estimators=5000,
+min_data_in_leaf=8,
+max_depth=0
 '''
+
+# final_model = LGBMRegressor(num_leaves=90,
+#                            learning_rate=0.01,
+#                            feature_fraction=0.50,
+#                            bagging_fraction=0.80,
+#                            bagging_freq=4,
+#                            min_child_samples=40,
+#                            n_estimators=5000,
+#                            min_data_in_leaf=8).fit(X, y)
+#
+# joblib.dump(final_model, "ml_price_prediction/lgbm_final_model.pkl")
+

@@ -84,8 +84,16 @@ mapboxgl.accessToken = APP_VAR.access_token;
                   return {
                     'type': 'Feature',
                     'properties' : {'label' : point[1], 'segment': point[2],
-                                    'description' : '<strong>' + point[4] + '</strong>' +
-                                    '<a href="' + point[3] + '" target="_blank" </a>'},
+                                    'description' : `<div>
+                                                        <a href=${point[3]} target="_blank"><strong>${point[4]}</strong></a>
+                                                        <ul  style="list-style: none; margin: 0; padding: 0;">
+                                                            <li>Room Type: <strong>${point[5]}</strong></li>
+                                                            <li>Bedroom: <strong>${point[6]}</strong></li>
+                                                            <li>Bed: <strong>${point[7]}</strong></li>
+                                                            <li>Bathroom: <strong>${point[8]}</strong></li>
+                                                            <li>Bathroom Type: <strong>${point[9]}</strong></li>
+                                                        </ul>
+                                                     </div>`},
                     'geometry': {
                       'type': 'Point',
                       'coordinates': point[0]
@@ -218,12 +226,10 @@ mapboxgl.accessToken = APP_VAR.access_token;
             const district = event.target.value;
             map.setFilter('unclustered-point', ['==', ['get', 'label'], district]);
 
-
             map.setPaintProperty('unclustered-point', 'circle-color', '#11b4da');
             map.setPaintProperty('unclustered-point', 'circle-radius', 3);
             map.setPaintProperty('unclustered-point', 'circle-stroke-width', 1);
             map.setPaintProperty('unclustered-point', 'circle-stroke-color', 'black');
-
 
             highlightNeighbourhood(district);
             const district_bbox = neighbourhoods_bbox[district];
@@ -292,17 +298,20 @@ mapboxgl.accessToken = APP_VAR.access_token;
                                                     <!-- LIMIT -->
         document.getElementById('set_bbox').addEventListener('click', () => {
             map.fitBounds([[27.965767, 40.801789],[29.963703, 41.585417]])
+
+            map.setFilter('unclustered-point', null)
+
             const style = map.getStyle()
             style.sources.point.cluster = true
             map.setStyle(style)
 
-            map.setFilter('unclustered-point', null)
-
             map.setLayoutProperty('neighbourhood_highlight','visibility','none');
-            map.setLayoutProperty('all-points','visibility','none');
+            map.setLayoutProperty('unclustered-point','visibility','none');
             map.setLayoutProperty('clusters','visibility','visible');
             map.setLayoutProperty('cluster-count','visibility','visible');
-            map.setLayoutProperty('unclustered-point','visibility','none');
+
+
+
 
         });
 // #####################################################################################################################

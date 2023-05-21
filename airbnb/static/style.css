@@ -56,3 +56,6 @@
     .swal2-title {
     font-size: revert !important;
     }
+    .mapboxgl-popup-content{
+    border-radius: 10px;
+    }
