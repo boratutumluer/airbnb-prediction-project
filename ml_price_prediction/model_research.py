@@ -14,7 +14,8 @@ from airbnb.helpers.data_prep import *
 from airbnb.helpers.eda import *
 
 from sklearn.preprocessing import RobustScaler, MinMaxScaler, StandardScaler
-from sklearn.model_selection import cross_validate, cross_val_score, GridSearchCV, validation_curve, learning_curve, train_test_split
+from sklearn.model_selection import cross_validate, cross_val_score, GridSearchCV, validation_curve, learning_curve, \
+    train_test_split
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor, export_graphviz, export_text
@@ -36,6 +37,7 @@ conn = engine.connect()
 df_ = pd.read_sql_query("SELECT * FROM data_to_predict", con=conn)
 df = df_.copy()
 
+
 ########################################################################################################################
 #                                       FEATURE ENGINEERING
 ########################################################################################################################
@@ -45,6 +47,7 @@ labels = tmp[tmp < 0.05].index
 df["property_type"] = np.where(df["property_type"].isin(labels), "Rare", df["property_type"])
 
 from geopy.distance import great_circle
+
 
 def calculate_distance(latitude, longitude):
     istanbul_center = (41.0145545, 28.956243)
@@ -67,11 +70,12 @@ df.drop("count", axis=1, inplace=True)
 df["host_response_rate"] = df["host_response_rate"] / 100
 
 df["host_segment"] = pd.qcut(df["host_since"], 5, ["E", "D", "C", "B", "A"])
-df["review_segment"] = pd.qcut(df["review_age"], 5, ["A,", "B", "C", "D", "E"])
+df["review_segment"] = pd.qcut(df["review_age"], 5, ["A", "B", "C", "D", "E"])
 
 df.columns = [col.upper().replace(" ", "_") for col in df.columns]
 
 cat_cols, num_cols, cat_but_car, num_but_cat = grab_col_names(df)
+
 num_cols = [col for col in num_cols if col != "PRICE"]
 
 # Log transformation
@@ -91,18 +95,16 @@ df = one_hot_encoder(df, ohe_cols)
 df['NEIGHBOURHOOD_ENCODED'] = df.groupby('NEIGHBOURHOOD_CLEANSED')['PRICE'].transform('mean')
 df['NEIGHBOURHOOD_ENCODED'] = np.log1p(df["NEIGHBOURHOOD_ENCODED"])
 df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
-
 ##############################################
 #                   HISTOGRAMS
 ##############################################
 
 
-# for col in num_cols:
-#     num_summary(df, col, plot=True)
-#
-# for col in cat_cols:
-#     cat_summary(df, col, plot=True)
-#
+for col in num_cols:
+    num_summary(df, col, plot=True)
+
+for col in cat_cols:
+    cat_summary(df, col, plot=True)
 
 #
 # def boxplot_target_analysis_with_cat(dataframe, target, column):
@@ -113,20 +115,19 @@ df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
 #                 showfliers=False, palette="Spectral", linewidth=0.6, width=0.6)
 #     ax = plt.gca()
 #     ax.set_title("")
-#     ax.set_xlabel(f"{target}", fontsize=12)
+#     ax.set_xlabel(f"{target}", fontsize=20)
 #     ax.set_ylabel("")
-#     plt.suptitle(f"{target} by {column}", fontweight="bold", fontsize=16)
+#     plt.suptitle(f"{target} by {column}", fontweight="bold", fontsize=25)
 #
 #     for tick in ax.yaxis.get_major_ticks():
-#         tick.label.set_fontsize(14)
+#         tick.label.set_fontsize(20)
 #     for tick in ax.xaxis.get_major_ticks():
-#         tick.label.set_fontsize(14)
-#     plt.savefig(
-#         f"pythonProject/Github/Me/final_project/images_predict_price/exploratory/categorical/{column}_{target}.png",
-#         bbox_inches='tight')
-
+#         tick.label.set_fontsize(20)
+#     plt.savefig(f"graphs/{column}_{target}.png", bbox_inches='tight')
+#
 # for col in [col for col in cat_cols if df[col].nunique() >= 2]:
 #     boxplot_target_analysis_with_cat(df, "PRICE", col)
+#
 # boxplot_target_analysis_with_cat(df, "PRICE", "NEIGHBOURHOOD_CLEANSED")
 # boxplot_target_analysis_with_cat(df, "PRICE", "PROPERTY_TYPE")
 #
@@ -150,8 +151,7 @@ df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
 #     for tick in ax.xaxis.get_major_ticks():
 #         tick.label.set_fontsize(14)
 #     plt.savefig(
-#         f"pythonProject/Github/Me/final_project/images_predict_price/exploratory/numerical/{column}_{target}.png",
-#         bbox_inches='tight')
+#         f"graphs/{column}_{target}.png",bbox_inches='tight')
 #
 #
 # boxplot_target_analysis_with_num(df, "PRICE", "MINIMUM_NIGHTS")
@@ -159,6 +159,7 @@ df["NEIGHBOURHOOD_ENCODED"] = sc.fit_transform(df[["NEIGHBOURHOOD_ENCODED"]])
 # boxplot_target_analysis_with_num(df, "PRICE", "BEDS")
 # boxplot_target_analysis_with_num(df, "PRICE", "BEDROOMS")
 # boxplot_target_analysis_with_num(df, "PRICE", "ACCOMMODATES")
+# boxplot_target_analysis_with_num(df, "PRICE", "AMENITIES")
 
 #################################################################
 #                   SKEW/SCALING/ENCODING
@@ -235,6 +236,8 @@ Train R2:  0.8147
 Test R2:  0.6014
 
 '''
+
+
 #######################################################################################################################
 #                                                    MODEL TUNING
 #######################################################################################################################
@@ -267,12 +270,12 @@ def lightgbm_optimization(trial):
     # Return the evaluation metric value (to be minimized)
     return rmse
 
+
 study = optuna.create_study(direction='minimize')
 study.optimize(lightgbm_optimization, n_trials=100)
 
-study.best_params
-study.best_value
-
+# study.best_params
+# study.best_value
 lgbm_model = LGBMRegressor(num_leaves=90,
                            learning_rate=0.01,
                            feature_fraction=0.40,
@@ -283,35 +286,30 @@ lgbm_model = LGBMRegressor(num_leaves=90,
                            min_data_in_leaf=8,
                            max_depth=0)
 
-cal_metric_for_regression(lgbm_model, scoring=['neg_mean_squared_error', 'r2'], name="LGBM")
-
-
-'''
-############## LGBM #################
-Train RMSE:  0.1125
-Test RMSE:  0.4252
-Train R2:  0.974
-Test R2:  0.6099
-'''
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-model = final_model.fit(X_train, y_train)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+model = lgbm_model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
-r2_score(y_test, y_pred)  # 0.6982272457306952
+r2_score(y_test, y_pred)
 
-np.expm1(y_test)
-np.expm1(y_pred)
+# print("R2 score: ", r2_score(y_test, y_pred) * 100)
+# print("RMSE: ", np.sqrt(mean_squared_error(y_test, y_pred)))
+#
+# # Error
+# error_diff = pd.DataFrame({'Actual Values': np.array(y_test).flatten(), 'Predicted Values': y_pred.flatten()})
+# print(error_diff.head(5))
+# #    Actual Values  Predicted Values
+# # 0       7.438972          6.814264
+# # 1       5.874931          5.853006
+# # 2       6.717805          6.877841
+# # 3       6.643790          7.273637
+# # 4       7.969704          8.158024
+# # Visualize the error
+# df1 = error_diff.head(25)
+# df1.plot(kind='bar', figsize=(10, 7))
+# plt.grid(which='major', linestyle='-', linewidth='0.5', color='green')
+# plt.grid(which='minor', linestyle=':', linewidth='0.5', color='black')
+# plt.show(block=True)
 
-x_ax = range(len(y_test))
-plt.figure(figsize=(20, 6))
-plt.plot(x_ax, np.expm1(y_test), label="original")
-plt.plot(x_ax, np.expm1(y_pred), label="predicted")
-plt.title("Airbnb test and predicted data")
-plt.xlabel('X')
-plt.ylabel('Price')
-plt.legend(loc='best', fancybox=True, shadow=True)
-plt.grid(True)
-plt.show(block=True)
 
 def plot_importance(model, features, num=len(X), save=False):
     feature_imp = pd.DataFrame({'Value': model.feature_importances_, 'Feature': features.columns})
@@ -364,9 +362,4 @@ def val_curve_params(model, X, y, param_name, param_range, scoring, cv=10):
     plt.tight_layout()
     plt.legend(loc='best')
     plt.show(block=True)
-
-
-
-
-
 

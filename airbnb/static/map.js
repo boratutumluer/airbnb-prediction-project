@@ -364,8 +364,8 @@ mapboxgl.accessToken = APP_VAR.access_token;
                 formFields.forEach(i=>{
                     link+= `&${i.id}=${i.value == '' ? i.placeholder : i.value}`
                 })
-                link += '&coordx=' + lngLat.lng
-                link += '&coordy=' + lngLat.lat
+                link += '&long=' + lngLat.lng
+                link += '&lat=' + lngLat.lat
 
                 fetch(link).then(response => response.json()).then(data =>{
                 const predictionPrice = data.prediction_price;

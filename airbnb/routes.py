@@ -116,8 +116,8 @@ def predict():
     host_identity_verified = 't'
     host_response_rate = args.get('host_response_rate')
     calculated_host_listings_count = int(args.get('calculated_host_listings_count'))
-    longitude = float(args.get('coordx'))
-    latitude = float(args.get('coordy'))
+    longitude = float(args.get('long'))
+    latitude = float(args.get('lat'))
 
     values = [neighbourhood_cleansed, room_type, bedrooms, beds, bathrooms, bathrooms_text,
               property_type, accommodates, amenities, minimum_nights, availability_30,
@@ -135,7 +135,6 @@ def predict():
     X, y = data_preprocessing(df)
     X_sample = X[-1:]
     prediction_price = round(np.expm1(model.predict(X_sample))[0])
-    print(prediction_price)
     data.update_price(table="data_to_predict", price_predicted=prediction_price)
 
     return jsonify({'prediction_price': prediction_price})

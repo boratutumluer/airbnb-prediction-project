@@ -19,7 +19,7 @@ from lightgbm import LGBMRegressor
 from xgboost import XGBRegressor
 from catboost import CatBoostRegressor
 from sklearn.ensemble import VotingRegressor
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 import optuna
 
 engine = create_engine('postgresql://postgres:bora00254613@localhost/airbnb')
@@ -154,8 +154,7 @@ bagging_fraction=0.80,
 bagging_freq=4,
 min_child_samples=40,
 n_estimators=5000,
-min_data_in_leaf=8,
-max_depth=0
+min_data_in_leaf=8
 '''
 
 # final_model = LGBMRegressor(num_leaves=90,
@@ -168,4 +167,3 @@ max_depth=0
 #                            min_data_in_leaf=8).fit(X, y)
 #
 # joblib.dump(final_model, "ml_price_prediction/lgbm_final_model.pkl")
-

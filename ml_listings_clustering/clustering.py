@@ -9,6 +9,7 @@ import geopy
 import sys
 sys.path.append('../airbnb/helpers')
 from airbnb.helpers.data_prep import *
+from airbnb.helpers.eda import *
 from airbnb.helpers.pandas_options import set_pandas_options
 
 pd.set_option("display.width", 220)
@@ -32,6 +33,16 @@ columns = ["neighbourhood_cleansed", 'property_type', 'room_type', 'accommodates
 
 df = df[columns]
 
+cat_cols, num_cols, cat_but_car, num_but_cat = grab_col_names(df)
+
+for col in num_cols:
+    num_summary(df, col, plot=True)
+
+for col in cat_cols:
+    cat_summary(df, col, plot=True)
+
+for col in cat_cols:
+    target_summary_with_cat(df, "price", col)
 ########################################################################################################################
 #                                       DATA PRE-PROCESSING
 ########################################################################################################################
@@ -47,6 +58,22 @@ for col in na_columns:
 ##############################################
 #                   OUTLIERS
 ##############################################
+# fig = plt.figure(figsize=(16, 6))
+#
+# ax1 = fig.add_subplot(121)
+# sns.boxplot(y=df['price'], ax=ax1, color='yellow')
+# describe = df['price'].describe().to_frame().round(2)
+#
+# ax2 = fig.add_subplot(122)
+# ax2.axis('off')
+#
+# font_size = 16
+# bbox = [0, 0, 1, 1]
+# table = ax2.table(cellText=describe.values, rowLabels=describe.index, bbox=bbox, colLabels=describe.columns)
+# table.set_fontsize(font_size)
+# fig.suptitle('Distribution of prices (with outliers)', fontsize=16)
+# plt.show(block=True)
+
 num_cols = [col for col in df.columns if df[col].dtypes != "O"]
 # df[num_cols].describe().T
 for col in num_cols:
