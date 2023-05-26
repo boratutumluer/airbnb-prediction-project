@@ -166,6 +166,6 @@ max_depth=7
 #                            min_child_samples=100,
 #                            n_estimators=1500,
 #                            min_data_in_leaf=30,
-#                            max_depth=7)
+#                            max_depth=7).fit(X, y)
 #
 # joblib.dump(final_model, "ml_price_prediction/lgbm_final_model.pkl")
