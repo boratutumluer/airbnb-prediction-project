@@ -147,23 +147,25 @@ def lightgbm_optimization(trial):
 # study.best_params
 
 '''
-num_leaves=90,
+num_leaves=500,
 learning_rate=0.01,
 feature_fraction=0.50,
-bagging_fraction=0.80,
-bagging_freq=4,
-min_child_samples=40,
-n_estimators=5000,
-min_data_in_leaf=8
+bagging_fraction=0.70,
+bagging_freq=10,
+min_child_samples=100,
+n_estimators=1500,
+min_data_in_leaf=30,
+max_depth=7
 '''
 
-# final_model = LGBMRegressor(num_leaves=90,
+# final_model = LGBMRegressor(num_leaves=500,
 #                            learning_rate=0.01,
 #                            feature_fraction=0.50,
-#                            bagging_fraction=0.80,
-#                            bagging_freq=4,
-#                            min_child_samples=40,
-#                            n_estimators=5000,
-#                            min_data_in_leaf=8).fit(X, y)
+#                            bagging_fraction=0.70,
+#                            bagging_freq=10,
+#                            min_child_samples=100,
+#                            n_estimators=1500,
+#                            min_data_in_leaf=30,
+#                            max_depth=7)
 #
 # joblib.dump(final_model, "ml_price_prediction/lgbm_final_model.pkl")
