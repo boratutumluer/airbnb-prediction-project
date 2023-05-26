@@ -9,7 +9,7 @@ from ml_price_prediction.model_pipeline import data_preprocessing
 
 @app.route('/')
 def index():
-    mapbox_access_token = 'pk.eyJ1IjoiYm9yYXR1dHVtbHVlciIsImEiOiJjbGgwaGNwbmYwdG1xM2RqdTljbzdpZnk2In0.i0yKymv8S0CYFLZRytrHzw'
+    mapbox_access_token = '{YOUR_ACCESS_TOKEN}'
 
     bathroom_types = pd.read_csv("airbnb/static/data/list_bathroom_types.csv")
     host_response_times = pd.read_csv("airbnb/static/data/list_host_response_times.csv")
