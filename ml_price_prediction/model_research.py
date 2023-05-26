@@ -276,15 +276,15 @@ study.optimize(lightgbm_optimization, n_trials=100)
 
 # study.best_params
 # study.best_value
-lgbm_model = LGBMRegressor(num_leaves=90,
+lgbm_model = LGBMRegressor(num_leaves=500,
                            learning_rate=0.01,
-                           feature_fraction=0.40,
-                           bagging_fraction=0.80,
-                           bagging_freq=4,
-                           min_child_samples=40,
-                           n_estimators=4500,
-                           min_data_in_leaf=8,
-                           max_depth=0)
+                           feature_fraction=0.50,
+                           bagging_fraction=0.70,
+                           bagging_freq=10,
+                           min_child_samples=100,
+                           n_estimators=1500,
+                           min_data_in_leaf=30,
+                           max_depth=7)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 model = lgbm_model.fit(X_train, y_train)
